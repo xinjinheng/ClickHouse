@@ -1,5 +1,6 @@
 #include <DataTypes/DataTypeFactory.h>
 #include <DataTypes/DataTypeCustom.h>
+#include <DataTypes/DataTypeVector.h>
 #include <Parsers/parseQuery.h>
 #include <Parsers/ParserCreateQuery.h>
 #include <Parsers/ASTDataType.h>
@@ -20,6 +21,28 @@ namespace DB
 namespace Setting
 {
     extern const SettingsBool log_queries;
+void registerDataTypeVector(DataTypeFactory & factory)
+{
+    factory.registerDataType("Vector", [](const ASTPtr & parameters) -> DataTypePtr
+    {
+        if (!parameters)
+            throw Exception(ErrorCodes::DATA_TYPE_HAS_NOT_ENOUGH_ARGUMENTS, "Data type Vector requires a dimension parameter");
+        
+        const auto * params = parameters->as<ASTExpressionList>();
+        if (!params || params->children.size() != 1)
+            throw Exception(ErrorCodes::DATA_TYPE_HAS_NOT_ENOUGH_ARGUMENTS, "Data type Vector requires exactly one dimension parameter");
+        
+        const auto * dim_literal = params->children[0]->as<ASTLiteral>();
+        if (!dim_literal || dim_literal->value.getType() != Field::Types::UInt64)
+            throw Exception(ErrorCodes::DATA_TYPE_HAS_INVALID_ARGUMENTS, "Data type Vector requires a positive integer dimension parameter");
+        
+        size_t dimension = dim_literal->value.getUInt64();
+        if (dimension == 0)
+            throw Exception(ErrorCodes::DATA_TYPE_HAS_INVALID_ARGUMENTS, "Data type Vector requires a dimension greater than 0");
+        
+        return std::make_shared<DataTypeVector>(dimension);
+    });
+}
 }
 
 namespace ErrorCodes
@@ -284,6 +307,7 @@ DataTypeFactory::DataTypeFactory()
     registerDataTypeVariant(*this);
     registerDataTypeDynamic(*this);
     registerDataTypeJSON(*this);
+    registerDataTypeVector(*this);
 }
 
 DataTypeFactory & DataTypeFactory::instance()
