@@ -176,12 +176,15 @@ static std::optional<UInt64> estimateJoinCardinality(
     return static_cast<UInt64>(joined_rows);
 }
 
+#include <DynamicCostModel/DynamicCostModel.h>
+
 static double computeJoinCost(
     const std::shared_ptr<DPJoinEntry> & left,
     const std::shared_ptr<DPJoinEntry> & right,
     double selectivity)
 {
-    return left->cost + right->cost + selectivity * left->estimated_rows.value_or(1) * right->estimated_rows.value_or(1);
+    // 使用动态代价模型计算Join代价
+    return DynamicCostModel::instance().computeJoinCost(left, right, selectivity);
 }
 
 std::shared_ptr<DPJoinEntry> JoinOrderOptimizer::solve()
